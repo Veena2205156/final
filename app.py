@@ -89,7 +89,6 @@ glucose_options = {
     "Diabetes: ≥126 mg/dL (≥7.0 mmol/L)":         126.0,
 }
 
-# ─── Login / Sign Up ───────────────────────────────────────────────────────────
 if choice == "Login":
     if not st.session_state.logged_in:
         st.subheader("🔐 User Login")
@@ -110,30 +109,34 @@ if choice == "Login":
         with st.form("prediction_form"):
             user_input = {}
 
-            # — Blood Pressure Category dropdown —
-            bp_label    = st.selectbox("Blood Pressure Category", list(bp_options.keys()))
-            bp_category = bp_options[bp_label]
-            st.caption(bp_label)
-            # map back to original hypertension flag
-            user_input["hypertension"] = 1 if bp_category in ["stage1","stage2","crisis"] else 0
+            # 1) Age first
+            user_input["age"] = st.number_input("Age", min_value=0.0)
 
-            # — Glucose Category dropdown —
+            # 2) Gender
+            gender = st.selectbox("Gender", ["Female", "Male", "Other"])
+            user_input["gender"] = ["Female", "Male", "Other"].index(gender)
+
+            # 3) Ever Married
+            user_input["ever_married"] = st.selectbox("Ever Married", ["No", "Yes"]) == "Yes"
+
+            # 4) Glucose category dropdown
             gl_label = st.selectbox("Average Glucose Level Category", list(glucose_options.keys()))
             user_input["avg_glucose_level"] = glucose_options[gl_label]
             st.caption(gl_label)
 
-            # — Other features —
+            # 5) Blood Pressure Category dropdown
+            bp_label    = st.selectbox("Blood Pressure Category", list(bp_options.keys()))
+            bp_category = bp_options[bp_label]
+            st.caption(bp_label)
+            user_input["hypertension"] = 1 if bp_category in ["stage1","stage2","crisis"] else 0
+
+            # 6) All other features (in any order)
             for col in raw_features:
-                if col in ["hypertension", "avg_glucose_level"]:
+                if col in ["age", "gender", "ever_married", "avg_glucose_level", "hypertension"]:
                     continue
                 col_label = col.replace("_", " ").capitalize()
-                if col == "age" or col == "bmi":
+                if col == "bmi":
                     user_input[col] = st.number_input(col_label, min_value=0.0)
-                elif col == "gender":
-                    gender = st.selectbox("Gender", ["Female", "Male", "Other"])
-                    user_input[col] = ["Female", "Male", "Other"].index(gender)
-                elif col == "ever_married":
-                    user_input[col] = st.selectbox("Ever Married", ["No", "Yes"]) == "Yes"
                 elif col == "work_type":
                     wt = st.selectbox("Work Type", ["Private","Self-employed","Govt_job","Children","Never_worked"])
                     user_input[col] = ["Private","Self-employed","Govt_job","Children","Never_worked"].index(wt)
