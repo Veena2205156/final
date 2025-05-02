@@ -88,7 +88,8 @@ st.title("🧠 Stroke Risk Prediction")
 menu = ["Login", "Sign Up"]
 choice = st.sidebar.selectbox("Navigation", menu)
 
-# Common BP category labels and ranges\labels = {
+# Common BP category labels and ranges
+labels = {
     "normal": "✅ Normal Blood Pressure",
     "elevated": "🟡 Elevated Blood Pressure",
     "stage1": "🟠 Stage 1 Hypertension",
@@ -211,3 +212,4 @@ elif choice == "Sign Up":
             st.success("🎉 Account created successfully! You can now login.")
         else:
             st.warning("⚠️ Username already exists.")
+
