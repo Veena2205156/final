@@ -2,31 +2,23 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load model and original feature list
-raw_features = joblib.load("features.pkl")
-bp_cat_features = [
-    "hypertension_normal",
-    "hypertension_elevated",
-    "hypertension_stage1",
-    "hypertension_stage2",
-    "hypertension_crisis",
-]
-features = [f for f in raw_features if f != "hypertension"] + bp_cat_features
-model = joblib.load("stroke_model.pkl")
+# ─── Load model and original feature list ─────────────────────────────────────
+raw_features = joblib.load("features.pkl")   # list including "hypertension"
+model        = joblib.load("stroke_model.pkl")
 
-# Load custom CSS
+# ─── Load custom CSS (optional) ────────────────────────────────────────────────
 try:
     with open("style.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 except FileNotFoundError:
     pass
 
-# Session init
+# ─── Session‐state init ─────────────────────────────────────────────────────────
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
-    st.session_state.username = ""
+    st.session_state.username  = ""
 
-# ---------- Authentication ----------
+# ─── Authentication helpers ────────────────────────────────────────────────────
 def authenticate(username, password):
     users = pd.read_csv("users.csv")
     return any((users["username"] == username) & (users["password"] == password))
@@ -39,7 +31,7 @@ def register_user(username, password):
     users.to_csv("users.csv", index=False)
     return True
 
-# ---------- Risk Result & Tips ----------
+# ─── Risk‐level & Tips ──────────────────────────────────────────────────────────
 def get_health_tips(pred):
     if pred == 2:
         return {
@@ -77,20 +69,22 @@ def get_health_tips(pred):
             ]
         }
 
-# ---------- UI ----------
+# ─── UI Layout ─────────────────────────────────────────────────────────────────
 st.title("🧠 Stroke Risk Prediction")
 menu = ["Login", "Sign Up"]
 choice = st.sidebar.selectbox("Navigation", menu)
 
+# BP dropdown options
 bp_options = {
-    "Normal Blood Pressure: Less than 120/80 mm Hg": "normal",
-    "Elevated Blood Pressure: 120-129 systolic and <80 diastolic mm Hg": "elevated",
-    "Stage 1 Hypertension: 130-139 systolic or 80-89 diastolic mm Hg": "stage1",
-    "Stage 2 Hypertension: 140-179 systolic or 90-119 diastolic mm Hg": "stage2",
-    "Hypertensive Crisis: ≥180 systolic or ≥120 diastolic mm Hg": "crisis",
+    "Normal: Less than 120/80 mm Hg":           "normal",
+    "Elevated: 120–129/< 80 mm Hg":             "elevated",
+    "Stage 1: 130–139 or 80–89 mm Hg":           "stage1",
+    "Stage 2: 140–179 or 90–119 mm Hg":          "stage2",
+    "Hypertensive Crisis: ≥ 180 or ≥ 120 mm Hg": "crisis",
 }
 
 if choice == "Login":
+    # ─── Login form ─────────────────────────────────────────────────────────────
     if not st.session_state.logged_in:
         st.subheader("🔐 User Login")
         username = st.text_input("Username")
@@ -99,23 +93,31 @@ if choice == "Login":
             if authenticate(username, password):
                 st.success(f"✅ Welcome {username}!")
                 st.session_state.logged_in = True
-                st.session_state.username = username
+                st.session_state.username  = username
             else:
                 st.error("❌ Invalid username or password.")
 
+    # ─── Prediction form ───────────────────────────────────────────────────────
     if st.session_state.logged_in:
         st.markdown("---")
         st.header("📋 Enter Your Health Details")
+
         with st.form("prediction_form"):
             user_input = {}
 
-            # BP Category
-            bp_label = st.selectbox("Blood Pressure Category", list(bp_options.keys()))
+            # 1) BP category dropdown
+            bp_label    = st.selectbox("Blood Pressure Category", list(bp_options.keys()))
             bp_category = bp_options[bp_label]
-            for cat in bp_cat_features:
-                user_input[cat] = 1 if cat.endswith(bp_category) else 0
+            st.caption(bp_label)
 
-            # Other inputs
+            # (optional) one‑hot fields if you want to inspect them
+            for cat in bp_options.values():
+                user_input[f"hypertension_{cat}"] = 1 if cat == bp_category else 0
+
+            # 2) Map back to original single flag
+            user_input["hypertension"] = 1 if bp_category in ["stage1","stage2","crisis"] else 0
+
+            # 3) Other features
             for col in raw_features:
                 if col == "hypertension":
                     continue
@@ -128,29 +130,32 @@ if choice == "Login":
                 elif col == "ever_married":
                     user_input[col] = st.selectbox("Ever Married", ["No", "Yes"]) == "Yes"
                 elif col == "work_type":
-                    wt = st.selectbox("Work Type", ["Private", "Self-employed", "Govt_job", "Children", "Never_worked"])
-                    user_input[col] = ["Private", "Self-employed", "Govt_job", "Children", "Never_worked"].index(wt)
+                    wt = st.selectbox("Work Type", ["Private","Self-employed","Govt_job","Children","Never_worked"])
+                    user_input[col] = ["Private","Self-employed","Govt_job","Children","Never_worked"].index(wt)
                 elif col == "Residence_type":
-                    rt = st.selectbox("Residence Type", ["Urban", "Rural"])
-                    user_input[col] = ["Urban", "Rural"].index(rt)
+                    rt = st.selectbox("Residence Type", ["Urban","Rural"])
+                    user_input[col] = ["Urban","Rural"].index(rt)
                 elif col == "smoking_status":
-                    sm = st.selectbox("Smoking Status", ["Never smoked", "Formerly smoked", "Smokes", "Unknown"])
-                    user_input[col] = ["Never smoked", "Formerly smoked", "Smokes", "Unknown"].index(sm)
+                    sm = st.selectbox("Smoking Status", ["Never smoked","Formerly smoked","Smokes","Unknown"])
+                    user_input[col] = ["Never smoked","Formerly smoked","Smokes","Unknown"].index(sm)
                 elif col == "heart_disease":
-                    user_input[col] = st.selectbox("Heart Disease (0: No, 1: Yes)", [0, 1])
+                    user_input[col] = st.selectbox("Heart Disease (0: No, 1: Yes)", [0,1])
                 else:
-                    user_input[col] = st.selectbox(f"{col_label} (0/1)", [0, 1])
+                    user_input[col] = st.selectbox(f"{col_label} (0/1)", [0,1])
 
             submit = st.form_submit_button("🔍 Predict Stroke Risk")
 
             if submit:
-                df_input = pd.DataFrame([user_input]).reindex(columns=features, fill_value=0)
+                # build DataFrame matching exactly raw_features
+                df_input   = pd.DataFrame([user_input]).reindex(columns=raw_features, fill_value=0)
                 prediction = model.predict(df_input)[0]
-                result = get_health_tips(prediction)
+                result     = get_health_tips(prediction)
+
                 st.markdown(f"### 🧾 Prediction Result: **{result['label']}**")
                 st.markdown("#### 🩺 Personalized Healthcare Tips:")
                 for tip in result["tips"]:
                     st.markdown(f"- {tip}")
+
         st.button("Logout", on_click=lambda: st.session_state.update({"logged_in": False, "username": ""}))
 
 elif choice == "Sign Up":
