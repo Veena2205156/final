@@ -3,7 +3,7 @@ import pandas as pd
 import joblib
 
 # ─── Load model and original feature list ─────────────────────────────────────
-raw_features = joblib.load("features.pkl")   # list including "hypertension"
+raw_features = joblib.load("features.pkl")   # list including "hypertension" and "avg_glucose_level"
 model        = joblib.load("stroke_model.pkl")
 
 # ─── Load custom CSS (optional) ────────────────────────────────────────────────
@@ -74,7 +74,7 @@ st.title("🧠 Stroke Risk Prediction")
 menu = ["Login", "Sign Up"]
 choice = st.sidebar.selectbox("Navigation", menu)
 
-# BP dropdown options
+# ─── Dropdown option definitions ───────────────────────────────────────────────
 bp_options = {
     "Normal: Less than 120/80 mm Hg":           "normal",
     "Elevated: 120–129/< 80 mm Hg":             "elevated",
@@ -83,8 +83,14 @@ bp_options = {
     "Hypertensive Crisis: ≥ 180 or ≥ 120 mm Hg": "crisis",
 }
 
+glucose_options = {
+    "Normal: 70–99 mg/dL (3.9–5.5 mmol/L)":       85.0,
+    "Prediabetes: 100–125 mg/dL (5.6–6.9 mmol/L)":112.5,
+    "Diabetes: ≥126 mg/dL (≥7.0 mmol/L)":         126.0,
+}
+
+# ─── Login / Sign Up ───────────────────────────────────────────────────────────
 if choice == "Login":
-    # ─── Login form ─────────────────────────────────────────────────────────────
     if not st.session_state.logged_in:
         st.subheader("🔐 User Login")
         username = st.text_input("Username")
@@ -97,7 +103,6 @@ if choice == "Login":
             else:
                 st.error("❌ Invalid username or password.")
 
-    # ─── Prediction form ───────────────────────────────────────────────────────
     if st.session_state.logged_in:
         st.markdown("---")
         st.header("📋 Enter Your Health Details")
@@ -105,24 +110,24 @@ if choice == "Login":
         with st.form("prediction_form"):
             user_input = {}
 
-            # 1) BP category dropdown
+            # — Blood Pressure Category dropdown —
             bp_label    = st.selectbox("Blood Pressure Category", list(bp_options.keys()))
             bp_category = bp_options[bp_label]
             st.caption(bp_label)
-
-            # (optional) one‑hot fields if you want to inspect them
-            for cat in bp_options.values():
-                user_input[f"hypertension_{cat}"] = 1 if cat == bp_category else 0
-
-            # 2) Map back to original single flag
+            # map back to original hypertension flag
             user_input["hypertension"] = 1 if bp_category in ["stage1","stage2","crisis"] else 0
 
-            # 3) Other features
+            # — Glucose Category dropdown —
+            gl_label = st.selectbox("Average Glucose Level Category", list(glucose_options.keys()))
+            user_input["avg_glucose_level"] = glucose_options[gl_label]
+            st.caption(gl_label)
+
+            # — Other features —
             for col in raw_features:
-                if col == "hypertension":
+                if col in ["hypertension", "avg_glucose_level"]:
                     continue
                 col_label = col.replace("_", " ").capitalize()
-                if col in ["age", "avg_glucose_level", "bmi"]:
+                if col == "age" or col == "bmi":
                     user_input[col] = st.number_input(col_label, min_value=0.0)
                 elif col == "gender":
                     gender = st.selectbox("Gender", ["Female", "Male", "Other"])
@@ -146,7 +151,6 @@ if choice == "Login":
             submit = st.form_submit_button("🔍 Predict Stroke Risk")
 
             if submit:
-                # build DataFrame matching exactly raw_features
                 df_input   = pd.DataFrame([user_input]).reindex(columns=raw_features, fill_value=0)
                 prediction = model.predict(df_input)[0]
                 result     = get_health_tips(prediction)
